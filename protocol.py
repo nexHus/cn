@@ -25,6 +25,7 @@ CMD_VIDEO = "VIDEO_FRAME"
 CMD_AUDIO = "AUDIO_CHUNK"
 CMD_LIST_UPDATE = "LIST"
 CMD_ACCEPT_CALL = "ACCEPT_CALL"
+CMD_END_CALL = "END_CALL"
 
 def send_packet(sock, cmd_type, data_dict, is_encrypted=True):
     """

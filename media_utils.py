@@ -94,10 +94,10 @@ class VideoCamera:
         try:
             ret, frame = self.cap.read()
             if ret:
-                # Downscale for network performance
-                frame = cv2.resize(frame, (320, 240))
-                # Compress to JPEG
-                success, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+                # Downscale more for network performance (smaller resolution = less data)
+                frame = cv2.resize(frame, (240, 180))
+                # Compress to JPEG with lower quality for speed
+                success, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
                 if success:
                     return buffer.tobytes()
         except Exception as e:

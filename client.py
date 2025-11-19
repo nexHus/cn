@@ -25,6 +25,7 @@ class ClientApp:
         # Call State
         self.in_call = False
         self.call_window = None
+        self.call_partner = None
         
         # UI Layout
         self.setup_ui()
@@ -103,13 +104,17 @@ class ClientApp:
         selection = self.user_listbox.curselection()
         if selection:
             user = self.user_listbox.get(selection[0])
-            if user == self.username: return
+            if user == self.username: 
+                messagebox.showinfo("Info", "You cannot message yourself!")
+                return
             self.target_user = user
-            self.msg_entry.config(bg="#fff8dc") # Yellow tint for private mode
+            self.msg_entry.config(bg="#ffffcc") # Yellow tint for private mode
+            self.root.title(f"PyChat Pro - {self.username} → Private Chat with {user}")
             print(f"Private target set to: {user}")
         else:
             self.target_user = "All"
             self.msg_entry.config(bg="white")
+            self.root.title(f"PyChat Pro - Logged in as {self.username}")
 
     def send_msg(self, event=None):
         text = self.msg_entry.get()
@@ -199,17 +204,30 @@ class ClientApp:
     def setup_call_window(self, target, incoming=False):
         if self.call_window: return # Prevent duplicate windows
         self.in_call = True
+        self.call_partner = target
         self.call_window = tk.Toplevel(self.root)
-        title = f"Incoming Call from {target}" if incoming else f"Calling {target}..."
+        title = f"Video Call with {target}"
         self.call_window.title(title)
         self.call_window.protocol("WM_DELETE_WINDOW", self.end_call)
 
         # Set default size and background
-        self.call_window.geometry("400x300")
+        self.call_window.geometry("500x400")
         self.video_label = tk.Label(self.call_window, text="Waiting for video...", bg="black", fg="white")
         self.video_label.pack(fill=tk.BOTH, expand=True)
+        
+        # End Call Button
+        end_btn = tk.Button(self.call_window, text="End Call", command=self.end_call, 
+                           bg="#f44336", fg="white", font=("Arial", 12, "bold"))
+        end_btn.pack(side=tk.BOTTOM, fill=tk.X, pady=5, padx=5)
 
     def end_call(self):
+        # Notify other user that call is ending
+        if self.call_partner and self.client_socket:
+            try:
+                protocol.send_packet(self.client_socket, protocol.CMD_END_CALL, {"target": self.call_partner})
+            except:
+                pass
+        
         self.in_call = False
         if self.call_window:
             try:
@@ -217,6 +235,7 @@ class ClientApp:
             except:
                 pass
             self.call_window = None
+        self.call_partner = None
 
     def send_video_stream(self, target):
         try:
@@ -240,12 +259,12 @@ class ClientApp:
             try:
                 frame_bytes = camera.get_frame_bytes()
                 if frame_bytes and self.client_socket:
-                    # Send via server
+                    # Send via server (unencrypted for speed)
                     data = {"target": target, "frame": frame_bytes}
-                    if not protocol.send_packet(self.client_socket, protocol.CMD_VIDEO, data, is_encrypted=True):
+                    if not protocol.send_packet(self.client_socket, protocol.CMD_VIDEO, data, is_encrypted=False):
                         print("[VIDEO] Failed to send frame")
                         break
-                time.sleep(0.05) # Cap at ~20 FPS
+                time.sleep(0.1) # Cap at ~10 FPS for better performance
             except Exception as e:
                 print(f"[VIDEO ERROR] {e}")
                 break
@@ -270,7 +289,7 @@ class ClientApp:
                 chunk = mic.get_chunk()
                 if chunk and self.client_socket:
                     data = {"target": target, "chunk": chunk}
-                    if not protocol.send_packet(self.client_socket, protocol.CMD_AUDIO, data, is_encrypted=True):
+                    if not protocol.send_packet(self.client_socket, protocol.CMD_AUDIO, data, is_encrypted=False):
                         print("[AUDIO] Failed to send chunk")
                         break
             except Exception as e:
@@ -357,6 +376,11 @@ class ClientApp:
                 if player and player.stream:
                     chunk = data['chunk']
                     player.play(chunk)
+            
+            elif cmd == protocol.CMD_END_CALL:
+                # Other user ended the call
+                self.root.after(0, self.end_call)
+                self.root.after(0, lambda: messagebox.showinfo("Call Ended", "The other user ended the call."))
         
         if player:
             player.cleanup()

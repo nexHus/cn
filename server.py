@@ -19,8 +19,20 @@ class ChatServer:
         
         self.lock = threading.Lock()
 
-        print(f"[SERVER] Running on {protocol.ADDR[1]}")
+        print(f"[SERVER] Running on port {protocol.ADDR[1]}")
+        print(f"[SERVER] Local IP Address: {self.get_local_ip()}")
         self.receive()
+
+    def get_local_ip(self):
+        try:
+            # Connect to an external server to get the interface IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except:
+            return "127.0.0.1"
 
     def broadcast(self, msg_packet, exclude_socket=None, target_room=None):
         """ Send packet to all or specific room members """
@@ -136,9 +148,20 @@ class ChatServer:
                                      packet_to_send = packet 
                                      # Inject Sender
                                      packet_to_send['data']['sender'] = username
-                                     protocol.send_packet(target_sock, cmd, packet_to_send['data'])
+                                     protocol.send_packet(target_sock, cmd, packet_to_send['data'], is_encrypted=False)
                              except Exception as e:
                                  print(f"[MEDIA ROUTING ERROR] {e}")
+                
+                elif cmd == protocol.CMD_END_CALL:
+                    # Forward end call notification
+                    target = data.get('target')
+                    if target:
+                        target_sock = self.username_to_socket.get(target)
+                        if target_sock:
+                            try:
+                                protocol.send_packet(target_sock, protocol.CMD_END_CALL, {})
+                            except Exception as e:
+                                print(f"[END CALL ERROR] {e}")
 
         except Exception as e:
             print(f"[ERROR] {username}: {e}")
