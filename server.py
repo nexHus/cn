@@ -169,7 +169,7 @@ class ChatServer:
                     protocol.send_packet(
                         client_socket,
                         protocol.CMD_MSG,
-                        {"from": "System", "text": f"Joined {new_room}"},
+                        {"from": "System", "text": f"Joined {new_room}", "room": new_room},
                     )
 
                 elif cmd == protocol.CMD_FILE:

@@ -240,8 +240,9 @@ class ClientApp:
                     {"room": room, "password": password},
                 )
             
-            # Optimistically switch view, though server confirmation is better
-            # We will wait for server confirmation in listen_server to update my_current_room
+            # We wait for server confirmation in listen_server to update my_current_room
+            # But we can clear the selection to indicate action
+            self.room_listbox.selection_clear(0, tk.END)
 
     def append_message(self, msg_type, sender, content):
         # Legacy method wrapper - now delegates to store_message
@@ -604,6 +605,7 @@ class ClientApp:
                         self.active_chat_id = room
                         self.target_user = "All"
                         self.root.after(0, self.refresh_chat_display)
+                        self.root.after(0, lambda: self.root.title(f"PyChat Pro - {self.username} in {room}"))
                 else:
                     context = "General"
 
