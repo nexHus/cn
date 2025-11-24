@@ -26,6 +26,11 @@ class ClientApp:
         self.is_connected = False
         self.target_user = "All"  # Default to broadcast
         self.send_lock = threading.Lock()
+        
+        # Chat State
+        self.chat_history = {} # {context_id: [message_lines]}
+        self.active_chat_id = "General" # Currently displayed chat
+        self.my_current_room = "General" # Room I am currently in on server
 
         # Call state
         self.in_call = False
@@ -34,6 +39,10 @@ class ClientApp:
         self.last_call_partner = None
         self.last_call_end_time = 0
         self.sending_video = False
+        
+        # Media State
+        self.mic_on = True
+        self.camera_on = True
 
         self.setup_ui()
 
@@ -144,14 +153,39 @@ class ClientApp:
             if user == self.username:
                 messagebox.showinfo("Info", "You cannot message yourself!")
                 return
+            
+            # Switch context to Private Chat with User
             self.target_user = user
+            self.active_chat_id = user
+            self.refresh_chat_display()
+            
             self.msg_entry.config(bg="#ffffcc")  # Yellow tint for private mode
             self.root.title(f"PyChat Pro - {self.username} → Private Chat with {user}")
-            print(f"Private target set to: {user}")
         else:
+            # Switch context back to Room
             self.target_user = "All"
+            self.active_chat_id = self.my_current_room
+            self.refresh_chat_display()
+            
             self.msg_entry.config(bg="white")
             self.root.title(f"PyChat Pro - Logged in as {self.username}")
+
+    def refresh_chat_display(self):
+        self.chat_area.config(state="normal")
+        self.chat_area.delete(1.0, tk.END)
+        
+        history = self.chat_history.get(self.active_chat_id, [])
+        for line in history:
+            # We need to parse the stored line to re-apply tags if needed
+            # For simplicity, we store tuples: (text, tag)
+            if isinstance(line, tuple):
+                text, tag = line
+                self.chat_area.insert(tk.END, text, tag)
+            else:
+                self.chat_area.insert(tk.END, line)
+                
+        self.chat_area.see(tk.END)
+        self.chat_area.config(state="disabled")
 
     def send_msg(self, event=None):
         # Sends a text message to the selected target (All or Private).
@@ -164,12 +198,16 @@ class ClientApp:
                 protocol.send_packet(
                     self.client_socket, protocol.CMD_MSG, {"text": text, "to": "All"}
                 )
+                # Store in current room history
+                self.store_message(self.my_current_room, "text", "Me", text)
             else:
                 protocol.send_packet(
                     self.client_socket,
                     protocol.CMD_MSG,
                     {"text": text, "to": self.target_user},
                 )
+                # Store in private chat history
+                self.store_message(self.target_user, "private", "Me", text)
 
         self.msg_entry.delete(0, tk.END)
 
@@ -201,27 +239,48 @@ class ClientApp:
                     protocol.CMD_ROOM_JOIN,
                     {"room": room, "password": password},
                 )
+            
+            # Optimistically switch view, though server confirmation is better
+            # We will wait for server confirmation in listen_server to update my_current_room
 
     def append_message(self, msg_type, sender, content):
-        # Appends a message to the chat area with appropriate formatting.
-        self.chat_area.config(state="normal")
+        # Legacy method wrapper - now delegates to store_message
+        # We need to infer context. 
+        # If private, context is sender. If room, context is room.
+        # This method is called from listen_server, which has better context.
+        pass 
+
+    def store_message(self, context_id, msg_type, sender, content):
         timestamp = time.strftime("%H:%M")
-
+        formatted_line = ""
+        tag = None
+        
         if msg_type == "text":
-            self.chat_area.insert(tk.END, f"[{timestamp}] {sender}: {content}\n")
+            formatted_line = f"[{timestamp}] {sender}: {content}\n"
         elif msg_type == "private":
-            self.chat_area.insert(
-                tk.END, f"[{timestamp}] (PVT) {sender}: {content}\n", "private"
-            )
-            self.chat_area.tag_config("private", foreground="red")
+            formatted_line = f"[{timestamp}] (PVT) {sender}: {content}\n"
+            tag = "private"
         elif msg_type == "file":
-            self.chat_area.insert(
-                tk.END, f"[{timestamp}] {sender} sent a file: {content}\n", "file"
-            )
-            self.chat_area.tag_config("file", foreground="blue")
-
-        self.chat_area.see(tk.END)
-        self.chat_area.config(state="disabled")
+            formatted_line = f"[{timestamp}] {sender} sent a file: {content}\n"
+            tag = "file"
+            
+        if context_id not in self.chat_history:
+            self.chat_history[context_id] = []
+            
+        entry = (formatted_line, tag) if tag else formatted_line
+        self.chat_history[context_id].append(entry)
+        
+        # If this context is currently active, update UI immediately
+        if context_id == self.active_chat_id:
+            self.chat_area.config(state="normal")
+            if tag:
+                self.chat_area.insert(tk.END, formatted_line, tag)
+                if tag == "private": self.chat_area.tag_config("private", foreground="red")
+                if tag == "file": self.chat_area.tag_config("file", foreground="blue")
+            else:
+                self.chat_area.insert(tk.END, formatted_line)
+            self.chat_area.see(tk.END)
+            self.chat_area.config(state="disabled")
 
     def send_file(self):
         # Opens file dialog and sends selected file.
@@ -244,7 +303,9 @@ class ClientApp:
 
         with self.send_lock:
             protocol.send_packet(self.client_socket, protocol.CMD_FILE, data)
-        self.append_message("text", "Me", f"Sent file: {filename}")
+        
+        context = self.target_user if self.target_user != "All" else self.my_current_room
+        self.store_message(context, "text", "Me", f"Sent file: {filename}")
 
     def save_incoming_file(self, filename, content):
         # Saves received file content to the downloads directory.
@@ -313,6 +374,31 @@ class ClientApp:
             font=("Arial", 12, "bold"),
         )
         end_btn.pack(side=tk.BOTTOM, fill=tk.X, pady=5, padx=5)
+        
+        # Control Buttons Frame
+        ctrl_frame = tk.Frame(self.call_window, bg="black")
+        ctrl_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+        
+        self.btn_mic = tk.Button(ctrl_frame, text="Mic: ON", command=self.toggle_mic, bg="#4CAF50", fg="white")
+        self.btn_mic.pack(side=tk.LEFT, padx=20, expand=True)
+        
+        if mode == "video":
+            self.btn_cam = tk.Button(ctrl_frame, text="Cam: ON", command=self.toggle_camera, bg="#4CAF50", fg="white")
+            self.btn_cam.pack(side=tk.RIGHT, padx=20, expand=True)
+
+    def toggle_mic(self):
+        self.mic_on = not self.mic_on
+        status = "ON" if self.mic_on else "OFF"
+        color = "#4CAF50" if self.mic_on else "#f44336"
+        if self.call_window:
+            self.btn_mic.config(text=f"Mic: {status}", bg=color)
+
+    def toggle_camera(self):
+        self.camera_on = not self.camera_on
+        status = "ON" if self.camera_on else "OFF"
+        color = "#4CAF50" if self.camera_on else "#f44336"
+        if self.call_window and hasattr(self, 'btn_cam'):
+            self.btn_cam.config(text=f"Cam: {status}", bg=color)
 
     def end_call(self):
         # Ends the current call and closes the call window.
@@ -351,6 +437,10 @@ class ClientApp:
 
         while self.in_call and self.is_connected:
             try:
+                if not self.camera_on:
+                    time.sleep(0.1)
+                    continue
+                    
                 frame_bytes = camera.get_frame_bytes()
                 if frame_bytes and self.client_socket:
                     data = {"target": target, "frame": frame_bytes}
@@ -386,6 +476,10 @@ class ClientApp:
 
         while self.in_call and self.is_connected:
             try:
+                if not self.mic_on:
+                    time.sleep(0.1)
+                    continue
+
                 chunk = mic.get_chunk()
                 if chunk and self.client_socket:
                     data = {"target": target, "chunk": chunk}
@@ -466,19 +560,44 @@ class ClientApp:
                 sender = data["from"]
                 text = data["text"]
                 is_pvt = data.get("is_private", False)
+                room = data.get("room") # Server sends room for broadcast msgs
 
                 msg_type = "private" if is_pvt else "text"
                 if sender == self.username:
                     sender = "Me"
+                
+                # Determine context
+                if is_pvt:
+                    context = sender if sender != "Me" else data.get("to")
+                elif room:
+                    context = room
+                    # If we receive a message for a room, we must be in it (or it's a system msg)
+                    if sender == "System" and "Joined" in text:
+                        # Update my current room tracking
+                        self.my_current_room = room
+                        # Auto-switch view to new room
+                        self.active_chat_id = room
+                        self.target_user = "All"
+                        self.root.after(0, self.refresh_chat_display)
+                else:
+                    context = "General"
 
-                self.append_message(msg_type, sender, text)
+                self.store_message(context, msg_type, sender, text)
 
             elif cmd == protocol.CMD_FILE:
                 # We received a file. Save it and tell the user.
                 sender = data["from"]
                 filename = data["filename"]
                 path = self.save_incoming_file(filename, data["content"])
-                self.append_message("file", sender, f"{filename} (Saved in downloads/)")
+                
+                # Context logic similar to MSG
+                is_pvt = data.get("to") is not None # If 'to' is set, it was directed
+                # Files don't always have 'room' in payload in current server impl, 
+                # but broadcast usually implies current room. 
+                # For simplicity, if not private, assume current room or General.
+                context = sender if is_pvt else self.my_current_room
+                
+                self.store_message(context, "file", sender, f"{filename} (Saved in downloads/)")
 
             elif cmd == protocol.CMD_VIDEO:
                 # We received a video frame for a call.
