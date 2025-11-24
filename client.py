@@ -72,6 +72,9 @@ class ClientApp:
         tk.Button(tool_frame, text="Create Room", command=self.create_room).pack(
             side=tk.LEFT
         )
+        tk.Button(tool_frame, text="Leave Room", command=self.leave_room).pack(
+            side=tk.LEFT
+        )
 
         tk.Button(
             tool_frame,
@@ -417,7 +420,7 @@ class ClientApp:
     def listen_server(self):
         # Listens for incoming packets from the server and handles them.
         # Runs in a separate thread
-        
+
         try:
             player = AudioPlayer()
         except Exception as e:
@@ -541,9 +544,7 @@ class ClientApp:
                 self.root.after(0, self.end_call)
                 self.root.after(
                     0,
-                    lambda: messagebox.showinfo(
-                        "Call Ended", "Call Ended."
-                    ),
+                    lambda: messagebox.showinfo("Call Ended", "Call Ended."),
                 )
 
         if player:
@@ -557,6 +558,15 @@ class ClientApp:
             self.root.quit()
         except:
             pass
+
+    def leave_room(self):
+        # Leaves the current room and returns to the General lobby.
+        with self.send_lock:
+            protocol.send_packet(
+                self.client_socket,
+                protocol.CMD_ROOM_JOIN,
+                {"room": "General", "password": None},
+            )
 
 
 if __name__ == "__main__":
