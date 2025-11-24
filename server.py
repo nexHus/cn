@@ -4,9 +4,9 @@ import protocol
 
 
 class ChatServer:
-    """
-    Main server class handling client connections, message routing, and room management.
-    """
+    
+    # Main server class handling client connections, message routing, and room management.
+    
 
     def __init__(self):
         # Initialize server socket
@@ -27,7 +27,7 @@ class ChatServer:
         self.receive()
 
     def get_local_ip(self):
-        """Retrieves the local IP address of the server."""
+        # Retrieves the local IP address of the server.
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
@@ -38,14 +38,12 @@ class ChatServer:
             return "127.0.0.1"
 
     def broadcast(self, msg_packet, exclude_socket=None, target_room=None):
-        """
-        Broadcasts a message to multiple clients.
+        # Broadcasts a message to multiple clients.
 
-        Args:
-            msg_packet: The message packet to send.
-            exclude_socket: Socket to exclude from broadcast (e.g., sender).
-            target_room: Specific room to broadcast to. If None, broadcasts to all.
-        """
+        # Args:
+        #     msg_packet: The message packet to send.
+        #     exclude_socket: Socket to exclude from broadcast (e.g., sender).
+        #     target_room: Specific room to broadcast to. If None, broadcasts to all.
         with self.lock:
             targets = []
             if target_room:
@@ -70,7 +68,7 @@ class ChatServer:
                     print(f"[BROADCAST ERROR] {e}")
 
     def handle_private_msg(self, sender, target_user, text):
-        """Handles sending a private message between two users."""
+        # Handles sending a private message between two users.
         target_socket = self.username_to_socket.get(target_user)
         if target_socket:
             data = {"from": sender, "text": text, "is_private": True}
@@ -80,7 +78,7 @@ class ChatServer:
             )
 
     def send_active_list(self):
-        """Sends the updated list of active users and rooms to all clients."""
+        # Sends the updated list of active users and rooms to all clients.
         users = list(self.username_to_socket.keys())
         rooms_list = list(self.rooms.keys())
 
@@ -88,12 +86,12 @@ class ChatServer:
         self.broadcast({"type": protocol.CMD_LIST_UPDATE, "data": packet})
 
     def handle_client(self, client_socket):
-        """
-        Handles the communication loop for a connected client.
+        
+        # Handles the communication loop for a connected client.
 
-        Args:
-            client_socket: The socket object for the connected client.
-        """
+        # Args:
+        #     client_socket: The socket object for the connected client.
+        
         username = ""
         current_room = "General"
 
@@ -248,7 +246,7 @@ class ChatServer:
             print(f"[DISCONN] {username}")
 
     def receive(self):
-        """Accepts incoming connections and starts a new thread for each client."""
+        # Accepts incoming connections and starts a new thread for each client.
         while True:
             client, address = self.server_socket.accept()
             thread = threading.Thread(target=self.handle_client, args=(client,))

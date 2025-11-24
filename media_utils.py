@@ -11,9 +11,7 @@ CHUNK = 1024
 
 
 class AudioRecorder:
-    """
-    Handles audio recording from the microphone.
-    """
+    # Handles audio recording from the microphone.
 
     def __init__(self):
         try:
@@ -27,7 +25,7 @@ class AudioRecorder:
             self.recording = False
 
     def start(self):
-        """Starts the audio recording stream."""
+        # Starts the audio recording stream
         if self.audio is None:
             return
         try:
@@ -45,7 +43,7 @@ class AudioRecorder:
             self.stream = None
 
     def get_chunk(self):
-        """Reads a chunk of audio data from the stream."""
+        # Reads a chunk of audio data from the stream.
         if self.recording and self.stream:
             try:
                 return self.stream.read(CHUNK, exception_on_overflow=False)
@@ -54,7 +52,7 @@ class AudioRecorder:
         return None
 
     def stop(self):
-        """Stops the audio recording and closes the stream."""
+        # Stops the audio recording and closes the stream
         self.recording = False
         if self.stream:
             try:
@@ -65,9 +63,9 @@ class AudioRecorder:
 
 
 class AudioPlayer:
-    """
-    Handles audio playback.
-    """
+    
+    # Handles audio playback.
+    
 
     def __init__(self):
         try:
@@ -85,7 +83,7 @@ class AudioPlayer:
             self.stream = None
 
     def play(self, data):
-        """Plays a chunk of audio data."""
+        # Plays a chunk of audio data
         if self.stream:
             try:
                 self.stream.write(data)
@@ -93,7 +91,7 @@ class AudioPlayer:
                 pass
 
     def cleanup(self):
-        """Stops the audio stream and releases resources."""
+        # Stops the audio stream and releases resources.
         if self.stream:
             try:
                 self.stream.stop_stream()
@@ -103,9 +101,9 @@ class AudioPlayer:
 
 
 class VideoCamera:
-    """
-    Handles video capture from the webcam.
-    """
+    
+    # Handles video capture from the webcam.
+    
 
     def __init__(self):
         self.cap = None
@@ -122,7 +120,7 @@ class VideoCamera:
             self.cap = None
 
     def get_frame_bytes(self):
-        """Captures a frame, resizes it, and encodes it as JPEG bytes."""
+        # Captures a frame, resizes it, and encodes it as JPEG bytes.
         frame = None
         if self.cap is not None and self.cap.isOpened():
             try:
@@ -155,7 +153,7 @@ class VideoCamera:
         return None
 
     def cleanup(self):
-        """Releases the camera resource."""
+        # Releases the camera resource.
         if self.cap is not None:
             try:
                 self.cap.release()
