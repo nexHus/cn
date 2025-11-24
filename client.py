@@ -199,7 +199,7 @@ class ClientApp:
                     self.client_socket, protocol.CMD_MSG, {"text": text, "to": "All"}
                 )
                 # Store in current room history
-                # self.store_message(self.my_current_room, "text", "Me", text)
+                self.store_message(self.my_current_room, "text", "Me", text)
             else:
                 protocol.send_packet(
                     self.client_socket,
@@ -207,7 +207,7 @@ class ClientApp:
                     {"text": text, "to": self.target_user},
                 )
                 # Store in private chat history
-                # self.store_message(self.target_user, "private", "Me", text)
+                self.store_message(self.target_user, "private", "Me", text)
 
         self.msg_entry.delete(0, tk.END)
 
@@ -581,12 +581,15 @@ class ClientApp:
             elif cmd == protocol.CMD_MSG:
                 sender = data["from"]
                 text = data["text"]
+                
+                # Ignore echo messages (we store them locally for better UX)
+                if sender == self.username:
+                    continue
+
                 is_pvt = data.get("is_private", False)
                 room = data.get("room") # Server sends room for broadcast msgs
 
                 msg_type = "private" if is_pvt else "text"
-                if sender == self.username:
-                    sender = "Me"
                 
                 # Determine context
                 if is_pvt:
