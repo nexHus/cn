@@ -338,6 +338,9 @@ class ClientApp:
     def setup_call_window(self, target, incoming=False, mode="video"):
         # Creates the call window UI.
         if self.call_window:
+            # If window exists but we want video and currently don't have it, try to upgrade
+            if mode == "video" and not hasattr(self, 'btn_cam'):
+                self.ensure_video_ui()
             return
 
         self.in_call = True
@@ -389,25 +392,28 @@ class ClientApp:
 
     def ensure_video_ui(self):
         # Upgrades the call window to include video controls if they are missing
-        if not self.call_window: return
+        if not self.in_call:
+            return
+
+        if not self.call_window: 
+            # Window not ready yet, retry in 100ms
+            self.root.after(100, self.ensure_video_ui)
+            return
         
         # Check if camera button exists by checking attribute
         if not hasattr(self, 'btn_cam'):
-            # We need to find the control frame. It's the last packed frame.
-            # A safer way is to repack the control frame or just add to the window if we can find the frame.
-            # Since we didn't save ctrl_frame reference, let's try to find it or just add a new one.
-            # Actually, we can just add the button to the existing window, but layout might be messy.
-            # Best approach: Re-run setup_call_window logic for buttons only.
+            # Wait for btn_mic to be ready if it's not there yet (race condition)
+            if not hasattr(self, 'btn_mic'):
+                 self.root.after(100, self.ensure_video_ui)
+                 return
+
+            ctrl_frame = self.btn_mic.master
+            self.btn_cam = tk.Button(ctrl_frame, text="Cam: ON", command=self.toggle_camera, bg="#4CAF50", fg="white")
+            self.btn_cam.pack(side=tk.RIGHT, padx=20, expand=True)
             
-            # Let's try to find the frame with the mic button
-            if hasattr(self, 'btn_mic'):
-                ctrl_frame = self.btn_mic.master
-                self.btn_cam = tk.Button(ctrl_frame, text="Cam: ON", command=self.toggle_camera, bg="#4CAF50", fg="white")
-                self.btn_cam.pack(side=tk.RIGHT, padx=20, expand=True)
-                
-                # Also update the label text if it says "Voice Call"
-                if hasattr(self, 'video_label'):
-                    self.video_label.config(text="Video Call Active", font=("Arial", 10))
+            # Also update the label text if it says "Voice Call"
+            if hasattr(self, 'video_label'):
+                self.video_label.config(text="Video Call Active", font=("Arial", 10))
 
     def toggle_mic(self):
         self.mic_on = not self.mic_on
@@ -484,6 +490,7 @@ class ClientApp:
 
     def send_audio_stream(self, target):
         # Captures and sends audio chunks to the call partner
+        print(f"[AUDIO] Starting audio stream to {target}")
         try:
             mic = AudioRecorder()
             if mic.audio is None:
@@ -650,6 +657,7 @@ class ClientApp:
                     ).start()
                 else:
                     # We are already in call (maybe started as voice), ensure UI has video controls
+                    print("[VIDEO] Upgrading to video UI")
                     self.root.after(0, self.ensure_video_ui)
 
                 if not self.sending_video:
