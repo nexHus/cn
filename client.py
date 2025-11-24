@@ -12,10 +12,8 @@ from media_utils import VideoCamera, AudioRecorder, AudioPlayer
 
 
 class ClientApp:
-    """
-    Main client application class using Tkinter for GUI.
-    Handles connection, messaging, file transfer, and media calls.
-    """
+    # This is the main class for our application. It handles everything the user sees (the GUI)
+    # and everything happening behind the scenes (networking, sending messages, calls).
 
     def __init__(self, root):
         self.root = root
@@ -42,7 +40,7 @@ class ClientApp:
         self.connect_to_server()
 
     def setup_ui(self):
-        """Initializes the GUI components."""
+        # Initializes the GUI components.
         left_frame = tk.Frame(self.root, width=600)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
 
@@ -105,7 +103,7 @@ class ClientApp:
         self.room_listbox.bind("<Double-1>", self.join_room)
 
     def connect_to_server(self):
-        """Prompts for server IP and username, then establishes connection."""
+        # Prompts for server IP and username, then establishes connection.
         host = simpledialog.askstring(
             "Server", "Enter Server IP:", initialvalue="127.0.0.1"
         )
@@ -136,7 +134,7 @@ class ClientApp:
             self.root.quit()
 
     def select_user(self, event):
-        """Handles user selection from the listbox for private messaging."""
+        # Handles user selection from the listbox for private messaging
         selection = self.user_listbox.curselection()
         if selection:
             user = self.user_listbox.get(selection[0])
@@ -153,7 +151,7 @@ class ClientApp:
             self.root.title(f"PyChat Pro - Logged in as {self.username}")
 
     def send_msg(self, event=None):
-        """Sends a text message to the selected target (All or Private)."""
+        # Sends a text message to the selected target (All or Private).
         text = self.msg_entry.get()
         if not text:
             return
@@ -173,7 +171,7 @@ class ClientApp:
         self.msg_entry.delete(0, tk.END)
 
     def create_room(self):
-        """Prompts user to create a new chat room."""
+        # Prompts user to create a new chat room
         room_name = simpledialog.askstring("Room", "New Room Name:")
         if room_name:
             password = simpledialog.askstring(
@@ -187,7 +185,7 @@ class ClientApp:
                 )
 
     def join_room(self, event):
-        """Handles joining an existing room from the listbox."""
+        # Handles joining an existing room from the listbox.
         selection = self.room_listbox.curselection()
         if selection:
             room = self.room_listbox.get(selection[0])
@@ -202,7 +200,7 @@ class ClientApp:
                 )
 
     def append_message(self, msg_type, sender, content):
-        """Appends a message to the chat area with appropriate formatting."""
+        # Appends a message to the chat area with appropriate formatting.
         self.chat_area.config(state="normal")
         timestamp = time.strftime("%H:%M")
 
@@ -223,7 +221,7 @@ class ClientApp:
         self.chat_area.config(state="disabled")
 
     def send_file(self):
-        """Opens file dialog and sends selected file."""
+        # Opens file dialog and sends selected file.
         filepath = filedialog.askopenfilename()
         if not filepath:
             return
@@ -246,7 +244,7 @@ class ClientApp:
         self.append_message("text", "Me", f"Sent file: {filename}")
 
     def save_incoming_file(self, filename, content):
-        """Saves received file content to the downloads directory."""
+        # Saves received file content to the downloads directory.
         if not os.path.exists("downloads"):
             os.makedirs("downloads")
         save_path = os.path.join("downloads", f"received_{filename}")
@@ -255,7 +253,7 @@ class ClientApp:
         return save_path
 
     def start_call(self, mode="video"):
-        """Initiates a video or voice call with the selected user."""
+        # Initiates a video or voice call with the selected user.
         if self.target_user == "All":
             messagebox.showwarning("Call", "Select a user from the list to call.")
             return
@@ -273,7 +271,7 @@ class ClientApp:
         ).start()
 
     def setup_call_window(self, target, incoming=False, mode="video"):
-        """Creates the call window UI."""
+        # Creates the call window UI.
         if self.call_window:
             return
 
@@ -314,7 +312,7 @@ class ClientApp:
         end_btn.pack(side=tk.BOTTOM, fill=tk.X, pady=5, padx=5)
 
     def end_call(self):
-        """Ends the current call and closes the call window."""
+        # Ends the current call and closes the call window.
         if self.call_partner:
             if self.client_socket:
                 try:
@@ -341,7 +339,7 @@ class ClientApp:
         self.call_partner = None
 
     def send_video_stream(self, target):
-        """Captures and sends video frames to the call partner."""
+        # Captures and sends video frames to the call partner
         try:
             camera = VideoCamera()
         except Exception as e:
@@ -369,7 +367,7 @@ class ClientApp:
         camera.cleanup()
 
     def send_audio_stream(self, target):
-        """Captures and sends audio chunks to the call partner."""
+        # Captures and sends audio chunks to the call partner
         try:
             mic = AudioRecorder()
             if mic.audio is None:
@@ -405,7 +403,7 @@ class ClientApp:
         mic.stop()
 
     def update_call_video(self, frame_bytes):
-        """Updates the video label with the received frame."""
+        # Updates the video label with the received frame
         if not self.in_call or not self.call_window:
             return
         try:
@@ -417,10 +415,9 @@ class ClientApp:
             print(f"[GUI ERROR] Update video failed: {e}")
 
     def listen_server(self):
-        """
-        Listens for incoming packets from the server and handles them.
-        Runs in a separate thread.
-        """
+        # Listens for incoming packets from the server and handles them.
+        # Runs in a separate thread
+        
         try:
             player = AudioPlayer()
         except Exception as e:
@@ -474,14 +471,17 @@ class ClientApp:
                 self.append_message(msg_type, sender, text)
 
             elif cmd == protocol.CMD_FILE:
+                # We received a file. Save it and tell the user.
                 sender = data["from"]
                 filename = data["filename"]
                 path = self.save_incoming_file(filename, data["content"])
                 self.append_message("file", sender, f"{filename} (Saved in downloads/)")
 
             elif cmd == protocol.CMD_VIDEO:
+                # We received a video frame for a call.
                 sender = data.get("sender")
                 if not self.in_call:
+                    # If we aren't in a call yet, this is a new incoming call.
                     if (
                         sender == self.last_call_partner
                         and (time.time() - self.last_call_end_time) < 3.0
@@ -510,6 +510,7 @@ class ClientApp:
                 self.root.after(0, lambda: self.update_call_video(frame))
 
             elif cmd == protocol.CMD_AUDIO:
+                # We received audio data. Play it.
                 if not self.in_call:
                     sender = data.get("sender")
 
@@ -536,6 +537,7 @@ class ClientApp:
                     player.play(chunk)
 
             elif cmd == protocol.CMD_END_CALL:
+                # The other person hung up.
                 self.root.after(0, self.end_call)
                 self.root.after(
                     0,

@@ -29,18 +29,16 @@ CMD_END_CALL = "END_CALL"
 
 
 def send_packet(sock, cmd_type, data_dict, is_encrypted=True):
-    """
-    Sends a packet to the specified socket.
+    # Sends a packet to the specified socket.
 
-    Args:
-        sock: The socket object to send data to.
-        cmd_type: The type of command (e.g., CMD_MSG, CMD_LOGIN).
-        data_dict: A dictionary containing the data payload.
-        is_encrypted: Boolean flag to determine if payload should be encrypted.
+    # Args:
+    #     sock: The socket object to send data to.
+    #     cmd_type: The type of command (e.g., CMD_MSG, CMD_LOGIN).
+    #     data_dict: A dictionary containing the data payload.
+    #     is_encrypted: Boolean flag to determine if payload should be encrypted.
 
-    Returns:
-        True if successful, False otherwise.
-    """
+    # Returns:
+    #     True if successful, False otherwise.
     try:
         if sock is None or sock.fileno() == -1:
             return False
@@ -72,16 +70,16 @@ def send_packet(sock, cmd_type, data_dict, is_encrypted=True):
 
 
 def receive_packet(sock, is_encrypted=True):
-    """
-    Receives a packet from the specified socket.
+    
+    # Receives a packet from the specified socket.
 
-    Args:
-        sock: The socket object to receive data from.
-        is_encrypted: Boolean flag to indicate if the incoming payload is encrypted.
+    # Args:
+    #     sock: The socket object to receive data from.
+    #     is_encrypted: Boolean flag to indicate if the incoming payload is encrypted.
 
-    Returns:
-        The unpacked payload dictionary, or None if an error occurs.
-    """
+    # Returns:
+    #     The unpacked payload dictionary, or None if an error occurs.
+    
     try:
         # Read the header to get payload length
         header = b""
