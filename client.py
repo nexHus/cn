@@ -11,7 +11,7 @@ import protocol
 from media_utils import VideoCamera, AudioRecorder, AudioPlayer
 
 
-class ClientApp:
+class ClientApp: 
     # This is the main class for our application. It handles everything the user sees (the GUI)
     # and everything happening behind the scenes (networking, sending messages, calls).
 
